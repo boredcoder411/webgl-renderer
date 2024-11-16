@@ -1,5 +1,7 @@
 import { mat4 } from "gl-matrix";
 import { vertexShaderSource, fragmentShaderSource } from "./shader.js";
+import { ttt } from "./ttt.js";
+import { data } from "./data.js";
 
 const canvas = document.getElementById("webglCanvas");
 canvas.width = window.innerWidth;
@@ -84,13 +86,22 @@ gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
 // Load texture
 const texture = gl.createTexture();
 const image = new Image();
+image.src = ttt(data)[2].toDataURL();
+image.onload = () => {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  console.log("Texture loaded");
+}
+/*const texture = gl.createTexture();
+const image = new Image();
 image.src = "texture.jpg";
 image.onload = () => {
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
   gl.generateMipmap(gl.TEXTURE_2D);
   console.log("Texture loaded");
-};
+};*/
 
 // Transformations
 const matrixLocation = gl.getUniformLocation(program, "uMatrix");
@@ -100,7 +111,7 @@ mat4.perspective(projectionMatrix, Math.PI / 4, canvas.width / canvas.height, 0.
 mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -6]);
 
 function render() {
-  mat4.rotateY(modelViewMatrix, modelViewMatrix, 0.01);
+  //mat4.rotateY(modelViewMatrix, modelViewMatrix, 0.01);
 
   const finalMatrix = mat4.create();
   mat4.multiply(finalMatrix, projectionMatrix, modelViewMatrix);
