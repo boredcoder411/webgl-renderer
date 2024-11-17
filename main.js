@@ -13,112 +13,160 @@ if (!gl) {
   throw new Error("WebGL not supported");
 }
 
-// Utility to compile shaders
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error("Shader compile error:", gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
+class ShaderProgram {
+  constructor(gl, vertexSource, fragmentSource) {
+    this.gl = gl;
+    const vertexShader = this.createShader(gl.VERTEX_SHADER, vertexSource);
+    const fragmentShader = this.createShader(gl.FRAGMENT_SHADER, fragmentSource);
+    this.program = this.createProgram(vertexShader, fragmentShader);
+    gl.useProgram(this.program);
   }
-  return shader;
-}
 
-// Utility to create a program
-function createProgram(gl, vertexShader, fragmentShader) {
-  const program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.error("Program link error:", gl.getProgramInfoLog(program));
-    gl.deleteProgram(program);
-    return null;
+  createShader(type, source) {
+    const shader = this.gl.createShader(type);
+    this.gl.shaderSource(shader, source);
+    this.gl.compileShader(shader);
+    if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+      console.error("Shader compile error:", this.gl.getShaderInfoLog(shader));
+      this.gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
   }
-  return program;
+
+  createProgram(vertexShader, fragmentShader) {
+    const program = this.gl.createProgram();
+    this.gl.attachShader(program, vertexShader);
+    this.gl.attachShader(program, fragmentShader);
+    this.gl.linkProgram(program);
+    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+      console.error("Program link error:", this.gl.getProgramInfoLog(program));
+      this.gl.deleteProgram(program);
+      return null;
+    }
+    return program;
+  }
+
+  getAttribLocation(name) {
+    return this.gl.getAttribLocation(this.program, name);
+  }
+
+  getUniformLocation(name) {
+    return this.gl.getUniformLocation(this.program, name);
+  }
 }
 
-// Compile shaders
-const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-const program = createProgram(gl, vertexShader, fragmentShader);
-gl.useProgram(program);
+class Buffer {
+  constructor(gl, data, type, usage) {
+    this.gl = gl;
+    this.buffer = gl.createBuffer();
+    this.type = type;
+    gl.bindBuffer(type, this.buffer);
+    gl.bufferData(type, data, usage);
+  }
 
-// Cube vertex data (positions and texture coordinates)
-const vertices = new Float32Array([
-  // X, Y, Z, U, V
-  -1, -1, -1, 0, 0, 1, -1, -1, 1, 0, 1, 1, -1, 1, 1, -1, 1, -1, 0, 1,
-  -1, -1, 1, 0, 0, 1, -1, 1, 1, 0, 1, 1, 1, 1, 1, -1, 1, 1, 0, 1,
-  -1, -1, -1, 0, 0, -1, 1, -1, 1, 0, -1, 1, 1, 1, 1, -1, -1, 1, 0, 1,
-  1, -1, -1, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1, 1, 1, -1, 1, 0, 1,
-  -1, -1, -1, 0, 0, -1, -1, 1, 1, 0, 1, -1, 1, 1, 1, 1, -1, -1, 0, 1,
-  -1, 1, -1, 0, 0, -1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, -1, 0, 1,
-]);
-
-const indices = new Uint16Array([
-  0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
-  8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
-  16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
-]);
-
-// Set up buffers
-const vao = gl.createVertexArray();
-gl.bindVertexArray(vao);
-
-const vertexBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-const indexBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-
-const positionLocation = gl.getAttribLocation(program, "aPosition");
-gl.enableVertexAttribArray(positionLocation);
-gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 5 * 4, 0);
-
-const texCoordLocation = gl.getAttribLocation(program, "aTexCoord");
-gl.enableVertexAttribArray(texCoordLocation);
-gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
-
-// Load texture
-const texture = gl.createTexture();
-const image = new Image();
-image.src = ttt(data)[2].toDataURL();
-image.onload = () => {
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-  gl.generateMipmap(gl.TEXTURE_2D);
-  console.log("Texture loaded");
+  bind() {
+    this.gl.bindBuffer(this.type, this.buffer);
+  }
 }
-/*const texture = gl.createTexture();
-const image = new Image();
-image.src = "texture.jpg";
-image.onload = () => {
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-  gl.generateMipmap(gl.TEXTURE_2D);
-  console.log("Texture loaded");
-};*/
 
-// Transformations
-const matrixLocation = gl.getUniformLocation(program, "uMatrix");
+class Texture {
+  constructor(gl, source) {
+    this.gl = gl;
+    this.texture = gl.createTexture();
+    this.image = new Image();
+    this.image.src = source;
+    this.image.onload = () => this.loadTexture();
+  }
+
+  loadTexture() {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    console.log("Texture loaded");
+  }
+}
+
+class SceneObject {
+  constructor(gl, program, vertices, indices, textureSource) {
+    this.gl = gl;
+    this.program = program;
+    this.texture = new Texture(gl, textureSource);
+
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+
+    this.vertexBuffer = new Buffer(gl, vertices, gl.ARRAY_BUFFER, gl.STATIC_DRAW);
+    this.indexBuffer = new Buffer(gl, indices, gl.ELEMENT_ARRAY_BUFFER, gl.STATIC_DRAW);
+
+    const positionLocation = program.getAttribLocation("aPosition");
+    const texCoordLocation = program.getAttribLocation("aTexCoord");
+
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 5 * 4, 0);
+
+    gl.enableVertexAttribArray(texCoordLocation);
+    gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
+
+    this.modelViewMatrix = mat4.create();
+  }
+
+  setTransform(transformMatrix) {
+    mat4.copy(this.modelViewMatrix, transformMatrix);
+  }
+
+  render(matrixLocation, projectionMatrix) {
+    const finalMatrix = mat4.create();
+    mat4.multiply(finalMatrix, projectionMatrix, this.modelViewMatrix);
+
+    this.gl.uniformMatrix4fv(matrixLocation, false, finalMatrix);
+    this.gl.bindVertexArray(this.vao);
+    this.gl.drawElements(this.gl.TRIANGLES, 36, this.gl.UNSIGNED_SHORT, 0);
+  }
+}
+
+// Setup scene
+const program = new ShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
+const matrixLocation = program.getUniformLocation("uMatrix");
+var scene = [];
+
+const cube = new SceneObject(
+  gl,
+  program,
+  new Float32Array([
+    // X, Y, Z, U, V
+    -1, -1, -1, 0, 0, 1, -1, -1, 1, 0, 1, 1, -1, 1, 1, -1, 1, -1, 0, 1,
+    -1, -1, 1, 0, 0, 1, -1, 1, 1, 0, 1, 1, 1, 1, 1, -1, 1, 1, 0, 1,
+    -1, -1, -1, 0, 0, -1, 1, -1, 1, 0, -1, 1, 1, 1, 1, -1, -1, 1, 0, 1,
+    1, -1, -1, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1, 1, 1, -1, 1, 0, 1,
+    -1, -1, -1, 0, 0, -1, -1, 1, 1, 0, 1, -1, 1, 1, 1, 1, -1, -1, 0, 1,
+    -1, 1, -1, 0, 0, -1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, -1, 0, 1,
+  ]),
+  new Uint16Array([
+    0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
+    8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
+    16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
+  ]),
+  ttt(data)[2].toDataURL()
+);
+
+scene.push(cube);
+
+// Camera setup
 const projectionMatrix = mat4.create();
-const modelViewMatrix = mat4.create();
 mat4.perspective(projectionMatrix, Math.PI / 4, canvas.width / canvas.height, 0.1, 100.0);
+
+const modelViewMatrix = mat4.create();
 mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -6]);
 
 function render() {
-  //mat4.rotateY(modelViewMatrix, modelViewMatrix, 0.01);
-
-  const finalMatrix = mat4.create();
-  mat4.multiply(finalMatrix, projectionMatrix, modelViewMatrix);
-  gl.uniformMatrix4fv(matrixLocation, false, finalMatrix);
+  mat4.rotateY(modelViewMatrix, modelViewMatrix, 0.01);
+  mat4.rotateX(modelViewMatrix, modelViewMatrix, 0.01);
+  cube.setTransform(modelViewMatrix);
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+  scene.map((object) => object.render(matrixLocation, projectionMatrix));
 
   requestAnimationFrame(render);
 }
