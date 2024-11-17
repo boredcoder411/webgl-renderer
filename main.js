@@ -117,31 +117,90 @@ class SceneObject {
   }
 
   render(matrixLocation, projectionMatrix) {
+    const gl = this.gl;
+
+    // Bind the object's texture before rendering
+    gl.bindTexture(gl.TEXTURE_2D, this.texture.texture);
+
+    // Compute and set the transformation matrix
     const finalMatrix = mat4.create();
     mat4.multiply(finalMatrix, projectionMatrix, this.modelViewMatrix);
+    gl.uniformMatrix4fv(matrixLocation, false, finalMatrix);
 
-    this.gl.uniformMatrix4fv(matrixLocation, false, finalMatrix);
-    this.gl.bindVertexArray(this.vao);
-    this.gl.drawElements(this.gl.TRIANGLES, 36, this.gl.UNSIGNED_SHORT, 0);
+    // Bind the VAO and draw the object
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
   }
 }
 
 class Cube extends SceneObject {
-  constructor(gl, program, textureSource) {
+  constructor(gl, program, textureSource, width = 1, height = 1, depth = 1) {
     const vertices = new Float32Array([
-      // X, Y, Z, U, V
-      -1, -1, -1, 0, 0, 1, -1, -1, 1, 0, 1, 1, -1, 1, 1, -1, 1, -1, 0, 1,
-      -1, -1, 1, 0, 0, 1, -1, 1, 1, 0, 1, 1, 1, 1, 1, -1, 1, 1, 0, 1,
-      -1, -1, -1, 0, 0, -1, 1, -1, 1, 0, -1, 1, 1, 1, 1, -1, -1, 1, 0, 1,
-      1, -1, -1, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1, 1, 1, -1, 1, 0, 1,
-      -1, -1, -1, 0, 0, -1, -1, 1, 1, 0, 1, -1, 1, 1, 1, 1, -1, -1, 0, 1,
-      -1, 1, -1, 0, 0, -1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, -1, 0, 1,
+      // Front face
+      -width / 2, -height / 2, depth / 2, 0.0, 0.0,
+      width / 2, -height / 2, depth / 2, 1.0, 0.0,
+      width / 2, height / 2, depth / 2, 1.0, 1.0,
+      -width / 2, height / 2, depth / 2, 0.0, 1.0,
+
+      // Back face
+      -width / 2, -height / 2, -depth / 2, 0.0, 0.0,
+      -width / 2, height / 2, -depth / 2, 0.0, 1.0,
+      width / 2, height / 2, -depth / 2, 1.0, 1.0,
+      width / 2, -height / 2, -depth / 2, 1.0, 0.0,
+
+      // Top face
+      -width / 2, height / 2, -depth / 2, 1.0, 0.0,
+      -width / 2, height / 2, depth / 2, 1.0, 1.0,
+      width / 2, height / 2, depth / 2, 0.0, 1.0,
+      width / 2, height / 2, -depth / 2, 0.0, 0.0,
+
+      // Bottom face
+      -width / 2, -height / 2, -depth / 2, 0.0, 0.0,
+      width / 2, -height / 2, -depth / 2, 1.0, 0.0,
+      width / 2, -height / 2, depth / 2, 1.0, 1.0,
+      -width / 2, -height / 2, depth / 2, 0.0, 1.0,
+
+      // Right face
+      width / 2, -height / 2, -depth / 2, 0.0, 0,
+      width / 2, height / 2, -depth / 2, 1.0, 0.0,
+      width / 2, height / 2, depth / 2, 1.0, 1.0,
+      width / 2, -height / 2, depth / 2, 0.0, 1.0,
+
+      // Left face
+      -width / 2, -height / 2, -depth / 2, 0.0, 0.0,
+      -width / 2, -height / 2, depth / 2, 1.0, 0.0,
+      -width / 2, height / 2, depth / 2, 1.0, 1.0,
+      -width / 2, height / 2, -depth / 2, 0.0, 1.0,
     ]);
 
     const indices = new Uint16Array([
-      0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
-      8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
-      16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
+      0, 1, 2, 0, 2, 3, // Front face
+      4, 5, 6, 4, 6, 7, // Back face
+      8, 9, 10, 8, 10, 11, // Top face
+      12, 13, 14, 12, 14, 15, // Bottom face
+      16, 17, 18, 16, 18, 19, // Right face
+      20, 21, 22, 20, 22, 23, // Left face
+    ]);
+
+    super(gl, program, vertices, indices, textureSource);
+  }
+}
+
+class Plane extends SceneObject {
+  constructor(gl, program, textureSource, width = 2, height = 2) {
+    // Vertices and texture coordinates for a flat plane
+    const vertices = new Float32Array([
+      // X, Y, Z, U, V
+      -width / 2, -height / 2, 0, 0, 0,  // Bottom-left
+      width / 2, -height / 2, 0, 1, 0,  // Bottom-right
+      width / 2, height / 2, 0, 1, 1,  // Top-right
+      -width / 2, height / 2, 0, 0, 1,  // Top-left
+    ]);
+
+    // Indices to draw two triangles forming the plane
+    const indices = new Uint16Array([
+      0, 1, 2,  // First triangle
+      0, 2, 3,  // Second triangle
     ]);
 
     super(gl, program, vertices, indices, textureSource);
@@ -154,8 +213,10 @@ const matrixLocation = program.getUniformLocation("uMatrix");
 var scene = [];
 
 const cube = new Cube(gl, program, ttt(data)[2].toDataURL());
-
 scene.push(cube);
+
+const plane = new Plane(gl, program, ttt(data)[1].toDataURL());
+scene.push(plane);
 
 // Camera setup
 const projectionMatrix = mat4.create();
