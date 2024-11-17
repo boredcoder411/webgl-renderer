@@ -126,30 +126,34 @@ class SceneObject {
   }
 }
 
+class Cube extends SceneObject {
+  constructor(gl, program, textureSource) {
+    const vertices = new Float32Array([
+      // X, Y, Z, U, V
+      -1, -1, -1, 0, 0, 1, -1, -1, 1, 0, 1, 1, -1, 1, 1, -1, 1, -1, 0, 1,
+      -1, -1, 1, 0, 0, 1, -1, 1, 1, 0, 1, 1, 1, 1, 1, -1, 1, 1, 0, 1,
+      -1, -1, -1, 0, 0, -1, 1, -1, 1, 0, -1, 1, 1, 1, 1, -1, -1, 1, 0, 1,
+      1, -1, -1, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1, 1, 1, -1, 1, 0, 1,
+      -1, -1, -1, 0, 0, -1, -1, 1, 1, 0, 1, -1, 1, 1, 1, 1, -1, -1, 0, 1,
+      -1, 1, -1, 0, 0, -1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, -1, 0, 1,
+    ]);
+
+    const indices = new Uint16Array([
+      0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
+      8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
+      16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
+    ]);
+
+    super(gl, program, vertices, indices, textureSource);
+  }
+}
+
 // Setup scene
 const program = new ShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 const matrixLocation = program.getUniformLocation("uMatrix");
 var scene = [];
 
-const cube = new SceneObject(
-  gl,
-  program,
-  new Float32Array([
-    // X, Y, Z, U, V
-    -1, -1, -1, 0, 0, 1, -1, -1, 1, 0, 1, 1, -1, 1, 1, -1, 1, -1, 0, 1,
-    -1, -1, 1, 0, 0, 1, -1, 1, 1, 0, 1, 1, 1, 1, 1, -1, 1, 1, 0, 1,
-    -1, -1, -1, 0, 0, -1, 1, -1, 1, 0, -1, 1, 1, 1, 1, -1, -1, 1, 0, 1,
-    1, -1, -1, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1, 1, 1, -1, 1, 0, 1,
-    -1, -1, -1, 0, 0, -1, -1, 1, 1, 0, 1, -1, 1, 1, 1, 1, -1, -1, 0, 1,
-    -1, 1, -1, 0, 0, -1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, -1, 0, 1,
-  ]),
-  new Uint16Array([
-    0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
-    8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
-    16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
-  ]),
-  ttt(data)[2].toDataURL()
-);
+const cube = new Cube(gl, program, ttt(data)[2].toDataURL());
 
 scene.push(cube);
 
@@ -161,12 +165,15 @@ const modelViewMatrix = mat4.create();
 mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -6]);
 
 function render() {
-  mat4.rotateY(modelViewMatrix, modelViewMatrix, 0.01);
-  mat4.rotateX(modelViewMatrix, modelViewMatrix, 0.01);
-  cube.setTransform(modelViewMatrix);
-
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  scene.map((object) => object.render(matrixLocation, projectionMatrix));
+
+  mat4.rotateX(modelViewMatrix, modelViewMatrix, 0.01);
+
+  scene.forEach((object) => {
+    object.setTransform(modelViewMatrix);
+    object.render(matrixLocation, projectionMatrix);
+  });
 
   requestAnimationFrame(render);
 }
