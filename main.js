@@ -120,17 +120,21 @@ class SceneObject {
   render(matrixLocation, projectionMatrix, viewMatrix) {
     const gl = this.gl;
 
-    // Compute final model-view matrix for this object
+    // Ensure texture is bound for the specific object
+    gl.bindTexture(gl.TEXTURE_2D, this.texture.texture);
+
+    // Combine view and model matrices to create the model-view matrix
     const modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, viewMatrix, this.modelMatrix);
 
-    // Then multiply by the projection matrix
+    // Multiply by the projection matrix to get the final matrix
     const finalMatrix = mat4.create();
     mat4.multiply(finalMatrix, projectionMatrix, modelViewMatrix);
 
+    // Pass the final transformation matrix to the shader
     gl.uniformMatrix4fv(matrixLocation, false, finalMatrix);
 
-    // Bind VAO and draw
+    // Bind the VAO and draw the object
     gl.bindVertexArray(this.vao);
     const indexCount = this.indexBuffer.length;
     gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
