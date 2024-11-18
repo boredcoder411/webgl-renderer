@@ -236,16 +236,27 @@ mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -6]);
 const viewMatrix = mat4.create();
 mat4.lookAt(viewMatrix, [0, 0, 0], [0, 0, -1], [0, 1, 0]);
 
+const cameraMatrix = mat4.create();
+mat4.identity(cameraMatrix); // Start with an identity matrix
+
 function updateCamera(translation, rotation) {
-  mat4.translate(viewMatrix, viewMatrix, translation);
-  mat4.rotateY(viewMatrix, viewMatrix, rotation[1]);
-  mat4.rotateX(viewMatrix, viewMatrix, rotation[0]);
+  // Apply rotation first
+  mat4.rotateX(cameraMatrix, cameraMatrix, rotation[0]);
+  mat4.rotateY(cameraMatrix, cameraMatrix, rotation[1]);
+
+  // Then apply translation
+  mat4.translate(cameraMatrix, cameraMatrix, translation);
 }
 
 function render() {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+  // Invert camera matrix to simulate moving camera
+  const viewMatrix = mat4.create();
+  mat4.invert(viewMatrix, cameraMatrix);
+
+  // Render each object with the view and projection matrices applied
   scene.forEach((object) => {
     object.render(matrixLocation, projectionMatrix, viewMatrix);
   });
@@ -265,5 +276,13 @@ document.addEventListener("keydown", (event) => {
     updateCamera([-0.1, 0, 0], [0, 0, 0]);
   } else if (event.key === "d") {
     updateCamera([0.1, 0, 0], [0, 0, 0]);
+  } else if (event.key === "ArrowUp") {
+    updateCamera([0, 0, 0], [0.1, 0]);
+  } else if (event.key === "ArrowDown") {
+    updateCamera([0, 0, 0], [-0.1, 0]);
+  } else if (event.key === "ArrowLeft") {
+    updateCamera([0, 0, 0], [0, 0.1]);
+  } else if (event.key === "ArrowRight") {
+    updateCamera([0, 0, 0], [0, -0.1]);
   }
 });
