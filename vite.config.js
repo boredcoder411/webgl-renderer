@@ -19,7 +19,7 @@ export default defineConfig({
         CompressionPlugin({
           algorithm: 'gzip',  // Set the algorithm to gzip
           ext: '.gz',         // The extension for gzipped files
-          threshold: 10240,   // Only compress files larger than 10KB
+          threshold: 5120,   // Only compress files larger than 5KB
           deleteOriginalAssets: false,  // Keep the original (uncompressed) files
         })
       ],
@@ -32,7 +32,7 @@ export default defineConfig({
     CompressionPlugin({
       algorithm: 'gzip',  // Set the algorithm to gzip
       ext: '.gz',         // The extension for gzipped files
-      threshold: 10240,   // Only compress files larger than 10KB
+      threshold: 5120,   // Only compress files larger than 5KB
       deleteOriginalAssets: false,  // Keep the original (uncompressed) files
     }),
   ],
