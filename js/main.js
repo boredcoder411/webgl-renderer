@@ -237,15 +237,12 @@ const viewMatrix = mat4.create();
 mat4.lookAt(viewMatrix, [0, 0, 0], [0, 0, -1], [0, 1, 0]);
 
 const cameraMatrix = mat4.create();
-mat4.identity(cameraMatrix); // Start with an identity matrix
+mat4.invert(cameraMatrix, viewMatrix);
 
 function updateCamera(translation, rotation) {
-  // Apply rotation first
+  mat4.translate(cameraMatrix, cameraMatrix, translation);
   mat4.rotateX(cameraMatrix, cameraMatrix, rotation[0]);
   mat4.rotateY(cameraMatrix, cameraMatrix, rotation[1]);
-
-  // Then apply translation
-  mat4.translate(cameraMatrix, cameraMatrix, translation);
 }
 
 function render() {
