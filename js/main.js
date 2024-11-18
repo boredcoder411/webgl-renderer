@@ -276,13 +276,36 @@ document.addEventListener("keydown", (event) => {
     updateCamera([-0.1, 0, 0], [0, 0, 0]);
   } else if (event.key === "d") {
     updateCamera([0.1, 0, 0], [0, 0, 0]);
-  } else if (event.key === "ArrowUp") {
-    updateCamera([0, 0, 0], [0.1, 0]);
-  } else if (event.key === "ArrowDown") {
-    updateCamera([0, 0, 0], [-0.1, 0]);
-  } else if (event.key === "ArrowLeft") {
-    updateCamera([0, 0, 0], [0, 0.1]);
-  } else if (event.key === "ArrowRight") {
-    updateCamera([0, 0, 0], [0, -0.1]);
   }
+});
+
+var lock = false;
+
+document.addEventListener("mousemove", (event) => {
+  const sensitivity = -0.01;
+  const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+  const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+  if(lock) {
+    const rotation = [movementY * sensitivity, movementX * sensitivity];
+    updateCamera([0, 0, 0], rotation);
+  }
+});
+
+canvas.addEventListener("click", (event) => {
+  canvas.requestPointerLock();
+  lock = true;
+});
+
+// unlock when no longer in pointer lock
+document.addEventListener("pointerlockchange", () => {
+  if (document.pointerLockElement !== canvas) {
+    lock = false;
+  }
+});
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  mat4.perspective(projectionMatrix, Math.PI / 4, canvas.width / canvas.height, 0.1, 100.0);
 });
