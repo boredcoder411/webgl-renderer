@@ -61,6 +61,7 @@ class Buffer {
     this.gl = gl;
     this.buffer = gl.createBuffer();
     this.type = type;
+    this.length = data.length; // Store the number of elements
     gl.bindBuffer(type, this.buffer);
     gl.bufferData(type, data, usage);
   }
@@ -118,19 +119,21 @@ class SceneObject {
 
   render(matrixLocation, projectionMatrix) {
     const gl = this.gl;
-
+  
     // Bind the object's texture before rendering
     gl.bindTexture(gl.TEXTURE_2D, this.texture.texture);
-
+  
     // Compute and set the transformation matrix
     const finalMatrix = mat4.create();
     mat4.multiply(finalMatrix, projectionMatrix, this.modelViewMatrix);
     gl.uniformMatrix4fv(matrixLocation, false, finalMatrix);
-
+  
     // Bind the VAO and draw the object
     gl.bindVertexArray(this.vao);
-    gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
-  }
+  
+    const indexCount = this.indexBuffer.length; // Use stored length
+    gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
+  }  
 }
 
 class Cube extends SceneObject {
