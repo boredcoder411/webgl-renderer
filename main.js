@@ -110,30 +110,31 @@ class SceneObject {
     gl.enableVertexAttribArray(texCoordLocation);
     gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
 
-    this.modelViewMatrix = mat4.create();
+    this.modelMatrix = mat4.create();
   }
 
   setTransform(transformMatrix) {
-    mat4.copy(this.modelViewMatrix, transformMatrix);
+    mat4.copy(this.modelMatrix, transformMatrix); // Now this updates only the modelMatrix
   }
 
-  render(matrixLocation, projectionMatrix) {
+  render(matrixLocation, projectionMatrix, viewMatrix) {
     const gl = this.gl;
-  
-    // Bind the object's texture before rendering
-    gl.bindTexture(gl.TEXTURE_2D, this.texture.texture);
-  
-    // Compute and set the transformation matrix
+
+    // Compute final model-view matrix for this object
+    const modelViewMatrix = mat4.create();
+    mat4.multiply(modelViewMatrix, viewMatrix, this.modelMatrix);
+
+    // Then multiply by the projection matrix
     const finalMatrix = mat4.create();
-    mat4.multiply(finalMatrix, projectionMatrix, this.modelViewMatrix);
+    mat4.multiply(finalMatrix, projectionMatrix, modelViewMatrix);
+
     gl.uniformMatrix4fv(matrixLocation, false, finalMatrix);
-  
-    // Bind the VAO and draw the object
+
+    // Bind VAO and draw
     gl.bindVertexArray(this.vao);
-  
-    const indexCount = this.indexBuffer.length; // Use stored length
+    const indexCount = this.indexBuffer.length;
     gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
-  }  
+  }
 }
 
 class Cube extends SceneObject {
@@ -228,15 +229,21 @@ mat4.perspective(projectionMatrix, Math.PI / 4, canvas.width / canvas.height, 0.
 const modelViewMatrix = mat4.create();
 mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -6]);
 
+const viewMatrix = mat4.create();
+mat4.lookAt(viewMatrix, [0, 0, 0], [0, 0, -1], [0, 1, 0]);
+
+function updateCamera(translation, rotation) {
+  mat4.translate(viewMatrix, viewMatrix, translation);
+  mat4.rotateY(viewMatrix, viewMatrix, rotation[1]);
+  mat4.rotateX(viewMatrix, viewMatrix, rotation[0]);
+}
+
 function render() {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  mat4.rotateX(modelViewMatrix, modelViewMatrix, 0.01);
-
   scene.forEach((object) => {
-    object.setTransform(modelViewMatrix);
-    object.render(matrixLocation, projectionMatrix);
+    object.render(matrixLocation, projectionMatrix, viewMatrix);
   });
 
   requestAnimationFrame(render);
@@ -244,3 +251,15 @@ function render() {
 
 gl.enable(gl.DEPTH_TEST);
 render();
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "w") {
+    updateCamera([0, 0, 0.1], [0, 0, 0]);
+  } else if (event.key === "s") {
+    updateCamera([0, 0, -0.1], [0, 0, 0]);
+  } else if (event.key === "a") {
+    updateCamera([-0.1, 0, 0], [0, 0, 0]);
+  } else if (event.key === "d") {
+    updateCamera([0.1, 0, 0], [0, 0, 0]);
+  }
+});
