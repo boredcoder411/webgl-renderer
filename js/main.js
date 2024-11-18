@@ -269,9 +269,9 @@ render();
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "w") {
-    updateCamera([0, 0, 0.1], [0, 0, 0]);
-  } else if (event.key === "s") {
     updateCamera([0, 0, -0.1], [0, 0, 0]);
+  } else if (event.key === "s") {
+    updateCamera([0, 0, 0.1], [0, 0, 0]);
   } else if (event.key === "a") {
     updateCamera([-0.1, 0, 0], [0, 0, 0]);
   } else if (event.key === "d") {
