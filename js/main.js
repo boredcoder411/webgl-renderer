@@ -312,7 +312,7 @@ function calculateRightVector() {
   const right = [0, 0, 0];
   right[0] = Math.cos(yaw);
   right[1] = 0;
-  right[2] = Math.sin(yaw);
+  right[2] = -Math.sin(yaw);
 
   // normalize the vector
   const length = Math.sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
