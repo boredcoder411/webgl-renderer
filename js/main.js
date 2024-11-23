@@ -244,28 +244,27 @@ let pitch = 0;
 const position = [0, 0, 0]; // Camera position in world space
 
 function updateCamera(translation, rotation) {
-  // Update yaw and pitch
   yaw += rotation[1];
   pitch += rotation[0];
 
-  // Clamp pitch to avoid flipping
-  const maxPitch = Math.PI / 2 - 0.01; // Slightly less than 90 degrees
+  const maxPitch = Math.PI / 2 - 0.01;
   pitch = Math.max(-maxPitch, Math.min(maxPitch, pitch));
 
-  // Update position
-  position[0] += translation[0];
-  position[1] += translation[1];
-  position[2] += translation[2];
+  // Reset rotation matrix
+  const yawMatrix = mat4.create();
+  mat4.rotateY(yawMatrix, yawMatrix, yaw);
 
-  // Rebuild the camera matrix
+  const pitchMatrix = mat4.create();
+  mat4.rotateX(pitchMatrix, pitchMatrix, pitch);
+
+  // Combine yaw (global Y-axis) and pitch (local X-axis)
   const rotationMatrix = mat4.create();
-  mat4.rotateX(rotationMatrix, rotationMatrix, pitch);
-  mat4.rotateY(rotationMatrix, rotationMatrix, yaw);
+  mat4.multiply(rotationMatrix, yawMatrix, pitchMatrix);
 
   const translationMatrix = mat4.create();
   mat4.translate(translationMatrix, translationMatrix, position);
 
-  mat4.multiply(cameraMatrix, translationMatrix, rotationMatrix); // Combine
+  mat4.multiply(cameraMatrix, translationMatrix, rotationMatrix);
 }
 
 function render() {
