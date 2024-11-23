@@ -265,6 +265,11 @@ function updateCamera(translation, rotation) {
   mat4.translate(translationMatrix, translationMatrix, position);
 
   mat4.multiply(cameraMatrix, translationMatrix, rotationMatrix);
+
+  // Update camera position
+  position[0] += translation[0];
+  position[1] += translation[1];
+  position[2] += translation[2];
 }
 
 function render() {
@@ -286,15 +291,51 @@ function render() {
 gl.enable(gl.DEPTH_TEST);
 render();
 
+function calculateForwardVector() {
+  // calculate the forward vector
+  const forward = [0, 0, 0];
+  forward[0] = -Math.sin(yaw);
+  forward[1] = 0;
+  forward[2] = -Math.cos(yaw);
+
+  // normalize the vector
+  const length = Math.sqrt(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
+  forward[0] /= length;
+  forward[1] /= length;
+  forward[2] /= length;
+
+  return forward;
+}
+
+function calculateRightVector() {
+  // calculate the right vector
+  const right = [0, 0, 0];
+  right[0] = Math.cos(yaw);
+  right[1] = 0;
+  right[2] = Math.sin(yaw);
+
+  // normalize the vector
+  const length = Math.sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
+  right[0] /= length;
+  right[1] /= length;
+  right[2] /= length;
+
+  return right;
+}
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "w") {
-    updateCamera([0, 0, -0.1], [0, 0, 0]);
+    let direction = calculateForwardVector();
+    updateCamera([direction[0] * 0.1, direction[1] * 0.1, direction[2] * 0.1], [0, 0, 0]);
   } else if (event.key === "s") {
-    updateCamera([0, 0, 0.1], [0, 0, 0]);
+    let direction = calculateForwardVector();
+    updateCamera([-direction[0] * 0.1, -direction[1] * 0.1, -direction[2] * 0.1], [0, 0, 0]);
   } else if (event.key === "a") {
-    updateCamera([-0.1, 0, 0], [0, 0, 0]);
+    let direction = calculateRightVector();
+    updateCamera([-direction[0] * 0.1, -direction[1] * 0.1, -direction[2] * 0.1], [0, 0, 0]);
   } else if (event.key === "d") {
-    updateCamera([0.1, 0, 0], [0, 0, 0]);
+    let direction = calculateRightVector();
+    updateCamera([direction[0] * 0.1, direction[1] * 0.1, direction[2] * 0.1], [0, 0, 0]);
   }
 });
 
