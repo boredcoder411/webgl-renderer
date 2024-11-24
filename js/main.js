@@ -111,6 +111,8 @@ class SceneObject {
     gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
 
     this.modelMatrix = mat4.create();
+
+    this.boundingBox = { min: [0, 0, 0], max: [0, 0, 0] }; // Default box
   }
 
   setTransform(transformMatrix) {
@@ -139,6 +141,61 @@ class SceneObject {
     const indexCount = this.indexBuffer.length;
     gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
   }
+
+  updateBoundingBox() {
+    const min = [-Infinity, -Infinity, -Infinity];
+    const max = [Infinity, Infinity, Infinity];
+
+    const width = this.width || 1;
+    const height = this.height || 1;
+    const depth = this.depth || 1;
+
+    // Calculate based on the current transform
+    const position = [this.modelMatrix[12], this.modelMatrix[13], this.modelMatrix[14]];
+
+    this.boundingBox = {
+      min: [position[0] - width / 2, position[1] - height / 2, position[2] - depth / 2],
+      max: [position[0] + width / 2, position[1] + height / 2, position[2] + depth / 2],
+    };
+  }
+}
+
+function isPointInsideAABB(point, box) {
+  return (
+    point[0] >= box.min[0] &&
+    point[0] <= box.max[0] &&
+    point[1] >= box.min[1] &&
+    point[1] <= box.max[1] &&
+    point[2] >= box.min[2] &&
+    point[2] <= box.max[2]
+  );
+}
+
+function getClosestPointOnAABB(point, box) {
+  const closest = [
+    Math.max(box.min[0], Math.min(point[0], box.max[0])),
+    Math.max(box.min[1], Math.min(point[1], box.max[1])),
+    Math.max(box.min[2], Math.min(point[2], box.max[2])),
+  ];
+  return closest;
+}
+
+function checkCollisions(playerPosition, sceneObjects, cameraRadius) {
+  for (const object of sceneObjects) {
+    object.updateBoundingBox(); // Ensure bounding box is up-to-date
+
+    const closestPoint = getClosestPointOnAABB(playerPosition, object.boundingBox);
+    const distance = Math.sqrt(
+      (closestPoint[0] - playerPosition[0]) ** 2 +
+      (closestPoint[1] - playerPosition[1]) ** 2 +
+      (closestPoint[2] - playerPosition[2]) ** 2
+    );
+
+    if (distance < cameraRadius) {
+      return true; // Collision detected
+    }
+  }
+  return false; // No collision
 }
 
 class Cube extends SceneObject {
@@ -224,7 +281,7 @@ const cube = new Cube(gl, program, ttt(data)[2].toDataURL());
 scene.push(cube);
 
 const plane = new Plane(gl, program, ttt(data)[1].toDataURL());
-scene.push(plane);
+//scene.push(plane);
 
 // Camera setup
 const projectionMatrix = mat4.create();
@@ -241,7 +298,7 @@ mat4.invert(cameraMatrix, viewMatrix);
 
 let yaw = 0;
 let pitch = 0;
-const position = [0, 0, 0]; // Camera position in world space
+const position = [0, 0, 6]; // Camera position in world space
 
 function updateCamera(translation, rotation) {
   yaw += rotation[1];
@@ -299,15 +356,32 @@ function handlePlayerInput() {
   const speed = 0.1;
   const forward = calculateForwardVector();
   const right = calculateRightVector();
+  const newPosition = [...position]; // Clone current position
 
   if (keys["w"]) {
-    updateCamera([forward[0] * speed, forward[1] * speed, forward[2] * speed], [0, 0]);
+    newPosition[0] += forward[0] * speed;
+    newPosition[1] += forward[1] * speed;
+    newPosition[2] += forward[2] * speed;
   } else if (keys["s"]) {
-    updateCamera([-forward[0] * speed, -forward[1] * speed, -forward[2] * speed], [0, 0]);
+    newPosition[0] -= forward[0] * speed;
+    newPosition[1] -= forward[1] * speed;
+    newPosition[2] -= forward[2] * speed;
   } else if (keys["a"]) {
-    updateCamera([-right[0] * speed, -right[1] * speed, -right[2] * speed], [0, 0]);
+    newPosition[0] -= right[0] * speed;
+    newPosition[1] -= right[1] * speed;
+    newPosition[2] -= right[2] * speed;
   } else if (keys["d"]) {
-    updateCamera([right[0] * speed, right[1] * speed, right[2] * speed], [0, 0]);
+    newPosition[0] += right[0] * speed;
+    newPosition[1] += right[1] * speed;
+    newPosition[2] += right[2] * speed;
+  }
+
+  const cameraRadius = 0.5; // Define your desired camera collision radius
+  if (!checkCollisions(newPosition, scene, cameraRadius)) {
+    position[0] = newPosition[0];
+    position[1] = newPosition[1];
+    position[2] = newPosition[2];
+    updateCamera([0, 0, 0], [0, 0]); // Update the camera transform
   }
 }
 
@@ -354,7 +428,7 @@ document.addEventListener("keyup", (event) => {
 var lock = false;
 
 document.addEventListener("mousemove", (event) => {
-  const sensitivity = -0.01;
+  const sensitivity = -0.005;
   const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
   const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
