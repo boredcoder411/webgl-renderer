@@ -272,9 +272,13 @@ function updateCamera(translation, rotation) {
   position[2] += translation[2];
 }
 
+let keys = {};
+
 function render() {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  handlePlayerInput();
 
   // Invert camera matrix to simulate moving camera
   const viewMatrix = mat4.create();
@@ -290,6 +294,22 @@ function render() {
 
 gl.enable(gl.DEPTH_TEST);
 render();
+
+function handlePlayerInput() {
+  const speed = 0.1;
+  const forward = calculateForwardVector();
+  const right = calculateRightVector();
+
+  if (keys["w"]) {
+    updateCamera([forward[0] * speed, forward[1] * speed, forward[2] * speed], [0, 0]);
+  } else if (keys["s"]) {
+    updateCamera([-forward[0] * speed, -forward[1] * speed, -forward[2] * speed], [0, 0]);
+  } else if (keys["a"]) {
+    updateCamera([-right[0] * speed, -right[1] * speed, -right[2] * speed], [0, 0]);
+  } else if (keys["d"]) {
+    updateCamera([right[0] * speed, right[1] * speed, right[2] * speed], [0, 0]);
+  }
+}
 
 function calculateForwardVector() {
   // calculate the forward vector
@@ -324,19 +344,11 @@ function calculateRightVector() {
 }
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "w") {
-    let direction = calculateForwardVector();
-    updateCamera([direction[0] * 0.1, direction[1] * 0.1, direction[2] * 0.1], [0, 0, 0]);
-  } else if (event.key === "s") {
-    let direction = calculateForwardVector();
-    updateCamera([-direction[0] * 0.1, -direction[1] * 0.1, -direction[2] * 0.1], [0, 0, 0]);
-  } else if (event.key === "a") {
-    let direction = calculateRightVector();
-    updateCamera([-direction[0] * 0.1, -direction[1] * 0.1, -direction[2] * 0.1], [0, 0, 0]);
-  } else if (event.key === "d") {
-    let direction = calculateRightVector();
-    updateCamera([direction[0] * 0.1, direction[1] * 0.1, direction[2] * 0.1], [0, 0, 0]);
-  }
+  keys[event.key] = true;
+});
+
+document.addEventListener("keyup", (event) => {
+  keys[event.key] = false;
 });
 
 var lock = false;
