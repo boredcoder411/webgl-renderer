@@ -110,8 +110,9 @@ class SceneObject {
     gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
 
     this.modelMatrix = mat4.create();
+    this.rotationMatrix = mat4.create(); // New: Rotation matrix
 
-    this.boundingBox = { min: [0, 0, 0], max: [0, 0, 0] }; // Default box
+    this.boundingBox = { min: [-1, -1, -1], max: [1, 1, 1] }; // Default OOB dimensions
   }
 
   setTransform(transformMatrix) {
@@ -156,18 +157,13 @@ class SceneObject {
       min: [position[0] - width / 2, position[1] - height / 2, position[2] - depth / 2],
       max: [position[0] + width / 2, position[1] + height / 2, position[2] + depth / 2],
     };
-  }
-}
 
-function isPointInsideAABB(point, box) {
-  return (
-    point[0] >= box.min[0] &&
-    point[0] <= box.max[0] &&
-    point[1] >= box.min[1] &&
-    point[1] <= box.max[1] &&
-    point[2] >= box.min[2] &&
-    point[2] <= box.max[2]
-  );
+    //console.log("Updated bounding box:", this.boundingBox);
+  }
+
+  setRotation(rotationMatrix) {
+    mat4.copy(this.rotationMatrix, rotationMatrix);
+  }
 }
 
 function getClosestPointOnAABB(point, box) {
@@ -181,24 +177,22 @@ function getClosestPointOnAABB(point, box) {
 
 function checkCollisions(playerPosition, sceneObjects, cameraRadius) {
   for (const object of sceneObjects) {
-    object.updateBoundingBox(); // Ensure bounding box is up-to-date
+    const ray = { origin: playerPosition, direction: [0, 0, 0] };
 
-    const closestPoint = getClosestPointOnAABB(playerPosition, object.boundingBox);
-    const distance = Math.sqrt(
-      (closestPoint[0] - playerPosition[0]) ** 2 +
-      (closestPoint[1] - playerPosition[1]) ** 2 +
-      (closestPoint[2] - playerPosition[2]) ** 2
-    );
+    const hit = rayIntersectsOOB(ray, object.boundingBox, object.modelMatrix, object.rotationMatrix);
+    if (hit) {
+      const distance = vec3.distance(playerPosition, hit);
+      if (distance < cameraRadius) {
+        // Calculate collision normal
+        const normal = vec3.create();
+        vec3.sub(normal, playerPosition, hit);
+        vec3.normalize(normal, normal);
 
-    if (distance < cameraRadius) {
-      // calculate the collision normal
-      const normal = vec3.create();
-      vec3.sub(normal, playerPosition, closestPoint);
-      vec3.normalize(normal, normal);
-      return { collision: true, normal: normal }; // Collision detected
+        return { collision: true, normal: normal }; // Collision detected
+      }
     }
   }
-  return { collision: false }; // No collision
+  return { collision: false };
 }
 
 class Cube extends SceneObject {
@@ -278,58 +272,55 @@ class Plane extends SceneObject {
 // ray from camera forwards infinitely into the scene
 // returns the closest object hit by the ray
 function raycast(cameraPosition, cameraDirection, sceneObjects) {
-  let closestObject = null;
+  let closestHit = null;
   let closestDistance = Infinity;
 
   for (const object of sceneObjects) {
-    const ray = {
-      origin: cameraPosition,
-      direction: cameraDirection,
-    };
-
-    const hit = rayIntersectsAABB(ray, object.boundingBox);
+    const hit = rayIntersectsOOB({ origin: cameraPosition, direction: cameraDirection }, object.boundingBox, object.modelMatrix, object.rotationMatrix);
     if (hit) {
       const distance = vec3.distance(cameraPosition, hit);
       if (distance < closestDistance) {
+        closestHit = object;
         closestDistance = distance;
-        closestObject = object;
       }
     }
   }
 
-  return closestObject;
+  return closestHit;
 }
 
-function rayIntersectsAABB(ray, box) {
-  const t1 = (box.min[0] - ray.origin[0]) / ray.direction[0];
-  const t2 = (box.max[0] - ray.origin[0]) / ray.direction[0];
-  const t3 = (box.min[1] - ray.origin[1]) / ray.direction[1];
-  const t4 = (box.max[1] - ray.origin[1]) / ray.direction[1];
-  const t5 = (box.min[2] - ray.origin[2]) / ray.direction[2];
-  const t6 = (box.max[2] - ray.origin[2]) / ray.direction[2];
+function rayIntersectsOOB(ray, box, modelMatrix, rotationMatrix) {
+  const inverseRotation = mat4.create();
+  mat4.invert(inverseRotation, rotationMatrix);
 
-  const tmin = Math.max(
-    Math.min(t1, t2),
-    Math.min(t3, t4),
-    Math.min(t5, t6)
-  );
+  const inverseTransform = mat4.create();
+  mat4.multiply(inverseTransform, inverseRotation, modelMatrix);
 
-  const tmax = Math.min(
-    Math.max(t1, t2),
-    Math.max(t3, t4),
-    Math.max(t5, t6)
-  );
+  // Transform the ray origin and direction into the OOB's local space
+  const localOrigin = vec3.create();
+  vec3.transformMat4(localOrigin, ray.origin, inverseTransform);
 
-  if (tmax < 0) {
+  const localDirection = vec3.create();
+  vec3.transformMat4(localDirection, ray.direction, inverseRotation);
+
+  // Perform AABB check in local space
+  const t1 = (box.min[0] - localOrigin[0]) / localDirection[0];
+  const t2 = (box.max[0] - localOrigin[0]) / localDirection[0];
+  const t3 = (box.min[1] - localOrigin[1]) / localDirection[1];
+  const t4 = (box.max[1] - localOrigin[1]) / localDirection[1];
+  const t5 = (box.min[2] - localOrigin[2]) / localDirection[2];
+  const t6 = (box.max[2] - localOrigin[2]) / localDirection[2];
+
+  const tmin = Math.max(Math.min(t1, t2), Math.min(t3, t4), Math.min(t5, t6));
+  const tmax = Math.min(Math.max(t1, t2), Math.max(t3, t4), Math.max(t5, t6));
+
+  if (tmax < 0 || tmin > tmax) {
     return null;
   }
 
-  if (tmin > tmax) {
-    return null;
-  }
-
+  // Calculate the hit point
   const hit = vec3.create();
-  vec3.scaleAndAdd(hit, ray.origin, ray.direction, tmin);
+  vec3.scaleAndAdd(hit, localOrigin, localDirection, tmin);
   return hit;
 }
 
@@ -529,9 +520,7 @@ canvas.addEventListener("click", (event) => {
   // raycast from camera
   const cameraDirection = calculateForwardVector();
   const hitObject = raycast(position, cameraDirection, scene);
-  if (hitObject) {
-    console.log("Hit object:", hitObject);
-  }
+  console.log(hitObject);
 });
 
 // unlock when no longer in pointer lock
