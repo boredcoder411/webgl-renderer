@@ -1,6 +1,5 @@
 import { mat4, vec3 } from "gl-matrix";
 import { vertexShaderSource, fragmentShaderSource } from "./shader.js";
-import { ttt } from "./ttt.js";
 import { data } from "./data.js";
 
 const canvas = document.getElementById("webglCanvas");
@@ -278,7 +277,7 @@ class Plane extends SceneObject {
 
 // ray from camera forwards infinitely into the scene
 // returns the closest object hit by the ray
-function raycast(sceneObjects, cameraPosition, cameraDirection) {
+function raycast(cameraPosition, cameraDirection, sceneObjects) {
   let closestObject = null;
   let closestDistance = Infinity;
 
@@ -309,14 +308,29 @@ function rayIntersectsAABB(ray, box) {
   const t5 = (box.min[2] - ray.origin[2]) / ray.direction[2];
   const t6 = (box.max[2] - ray.origin[2]) / ray.direction[2];
 
-  const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
-  const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+  const tmin = Math.max(
+    Math.min(t1, t2),
+    Math.min(t3, t4),
+    Math.min(t5, t6)
+  );
 
-  if (tmax < 0 || tmin > tmax) {
+  const tmax = Math.min(
+    Math.max(t1, t2),
+    Math.max(t3, t4),
+    Math.max(t5, t6)
+  );
+
+  if (tmax < 0) {
     return null;
   }
 
-  return vec3.add(vec3.create(), ray.origin, vec3.scale(vec3.create(), ray.direction, tmin));
+  if (tmin > tmax) {
+    return null;
+  }
+
+  const hit = vec3.create();
+  vec3.scaleAndAdd(hit, ray.origin, ray.direction, tmin);
+  return hit;
 }
 
 // Setup scene
@@ -324,11 +338,20 @@ const program = new ShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 const matrixLocation = program.getUniformLocation("uMatrix");
 var scene = [];
 
-const cube = new Cube(gl, program, ttt(data)[2].toDataURL());
+const cube = new Cube(gl, program, "texture.png");
 //scene.push(cube);
 
-const plane = new Plane(gl, program, ttt(data)[1].toDataURL());
+const plane = new Plane(gl, program, "texture.png", 10, 10);
 scene.push(plane);
+
+// rotate plane
+mat4.rotateX(plane.modelMatrix, plane.modelMatrix, Math.PI / 2);
+
+// move plane down
+mat4.translate(plane.modelMatrix, plane.modelMatrix, [0, 0, 10]);
+
+// move bounding box down
+plane.updateBoundingBox();
 
 // Camera setup
 const projectionMatrix = mat4.create();
@@ -503,11 +526,11 @@ canvas.addEventListener("click", (event) => {
   canvas.requestPointerLock();
   lock = true;
 
-  const forward = calculateForwardVector();
-
-  const hit = raycast(scene, position, forward);
-  if (hit) {
-    console.log("Hit object:", hit);
+  // raycast from camera
+  const cameraDirection = calculateForwardVector();
+  const hitObject = raycast(position, cameraDirection, scene);
+  if (hitObject) {
+    console.log("Hit object:", hitObject);
   }
 });
 
