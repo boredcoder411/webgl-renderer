@@ -1,4 +1,4 @@
-import { mat4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { vertexShaderSource, fragmentShaderSource } from "./shader.js";
 import { ttt } from "./ttt.js";
 import { data } from "./data.js";
@@ -192,10 +192,14 @@ function checkCollisions(playerPosition, sceneObjects, cameraRadius) {
     );
 
     if (distance < cameraRadius) {
-      return true; // Collision detected
+      // calculate the collision normal
+      const normal = vec3.create();
+      vec3.sub(normal, playerPosition, closestPoint);
+      vec3.normalize(normal, normal);
+      return { collision: true, normal: normal }; // Collision detected
     }
   }
-  return false; // No collision
+  return { collision: false }; // No collision
 }
 
 class Cube extends SceneObject {
@@ -272,16 +276,59 @@ class Plane extends SceneObject {
   }
 }
 
+// ray from camera forwards infinitely into the scene
+// returns the closest object hit by the ray
+function raycast(sceneObjects, cameraPosition, cameraDirection) {
+  let closestObject = null;
+  let closestDistance = Infinity;
+
+  for (const object of sceneObjects) {
+    const ray = {
+      origin: cameraPosition,
+      direction: cameraDirection,
+    };
+
+    const hit = rayIntersectsAABB(ray, object.boundingBox);
+    if (hit) {
+      const distance = vec3.distance(cameraPosition, hit);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestObject = object;
+      }
+    }
+  }
+
+  return closestObject;
+}
+
+function rayIntersectsAABB(ray, box) {
+  const t1 = (box.min[0] - ray.origin[0]) / ray.direction[0];
+  const t2 = (box.max[0] - ray.origin[0]) / ray.direction[0];
+  const t3 = (box.min[1] - ray.origin[1]) / ray.direction[1];
+  const t4 = (box.max[1] - ray.origin[1]) / ray.direction[1];
+  const t5 = (box.min[2] - ray.origin[2]) / ray.direction[2];
+  const t6 = (box.max[2] - ray.origin[2]) / ray.direction[2];
+
+  const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+  const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+
+  if (tmax < 0 || tmin > tmax) {
+    return null;
+  }
+
+  return vec3.add(vec3.create(), ray.origin, vec3.scale(vec3.create(), ray.direction, tmin));
+}
+
 // Setup scene
 const program = new ShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
 const matrixLocation = program.getUniformLocation("uMatrix");
 var scene = [];
 
 const cube = new Cube(gl, program, ttt(data)[2].toDataURL());
-scene.push(cube);
+//scene.push(cube);
 
 const plane = new Plane(gl, program, ttt(data)[1].toDataURL());
-//scene.push(plane);
+scene.push(plane);
 
 // Camera setup
 const projectionMatrix = mat4.create();
@@ -356,40 +403,53 @@ function handlePlayerInput() {
   const speed = 0.1;
   const forward = calculateForwardVector();
   const right = calculateRightVector();
-  const newPosition = [...position]; // Clone current position
+  const attemptedPosition = [...position];
 
+  // Calculate desired movement
+  let movement = [0, 0, 0];
   if (keys["w"]) {
-    newPosition[0] += forward[0] * speed;
-    newPosition[1] += forward[1] * speed;
-    newPosition[2] += forward[2] * speed;
-  } else if (keys["s"]) {
-    newPosition[0] -= forward[0] * speed;
-    newPosition[1] -= forward[1] * speed;
-    newPosition[2] -= forward[2] * speed;
-  } else if (keys["a"]) {
-    newPosition[0] -= right[0] * speed;
-    newPosition[1] -= right[1] * speed;
-    newPosition[2] -= right[2] * speed;
-  } else if (keys["d"]) {
-    newPosition[0] += right[0] * speed;
-    newPosition[1] += right[1] * speed;
-    newPosition[2] += right[2] * speed;
+    vec3.scaleAndAdd(movement, movement, forward, speed);
+  }
+  if (keys["s"]) {
+    vec3.scaleAndAdd(movement, movement, forward, -speed);
+  }
+  if (keys["a"]) {
+    vec3.scaleAndAdd(movement, movement, right, -speed);
+  }
+  if (keys["d"]) {
+    vec3.scaleAndAdd(movement, movement, right, speed);
   }
 
-  const cameraRadius = 0.5; // Define your desired camera collision radius
-  if (!checkCollisions(newPosition, scene, cameraRadius)) {
-    position[0] = newPosition[0];
-    position[1] = newPosition[1];
-    position[2] = newPosition[2];
-    updateCamera([0, 0, 0], [0, 0]); // Update the camera transform
+  // Apply movement to attempted position
+  vec3.add(attemptedPosition, attemptedPosition, movement);
+
+  const cameraRadius = 0.5;
+  const collisionResult = checkCollisions(attemptedPosition, scene, cameraRadius);
+
+  if (collisionResult.collision) {
+    // Slide along collision surface
+    const normal = collisionResult.normal;
+
+    // Remove movement along the collision normal
+    const dot = vec3.dot(movement, normal);
+    const slideVector = vec3.create();
+    vec3.scaleAndAdd(slideVector, movement, normal, -dot);
+
+    // Apply the slide vector
+    vec3.add(position, position, slideVector);
+  } else {
+    // No collision, apply full movement
+    vec3.copy(position, attemptedPosition);
   }
+
+  updateCamera([0, 0, 0], [0, 0]); // Update the camera transform
 }
 
 function calculateForwardVector() {
   // calculate the forward vector
   const forward = [0, 0, 0];
   forward[0] = -Math.sin(yaw);
-  forward[1] = 0;
+  forward[1] = Math.sin(pitch);
   forward[2] = -Math.cos(yaw);
 
   // normalize the vector
@@ -432,7 +492,7 @@ document.addEventListener("mousemove", (event) => {
   const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
   const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
-  if(lock) {
+  if (lock) {
     const rotation = [movementY * sensitivity, movementX * sensitivity];
     updateCamera([0, 0, 0], rotation);
   }
@@ -441,6 +501,13 @@ document.addEventListener("mousemove", (event) => {
 canvas.addEventListener("click", (event) => {
   canvas.requestPointerLock();
   lock = true;
+
+  const forward = calculateForwardVector();
+
+  const hit = raycast(scene, position, forward);
+  if (hit) {
+    console.log("Hit object:", hit);
+  }
 });
 
 // unlock when no longer in pointer lock
