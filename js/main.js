@@ -449,7 +449,8 @@ function calculateForwardVector() {
   // calculate the forward vector
   const forward = [0, 0, 0];
   forward[0] = -Math.sin(yaw);
-  forward[1] = Math.sin(pitch);
+  //forward[1] = Math.sin(pitch);
+  forward[1] = 0;
   forward[2] = -Math.cos(yaw);
 
   // normalize the vector
